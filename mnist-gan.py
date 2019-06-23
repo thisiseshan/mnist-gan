@@ -148,18 +148,18 @@ g_optimizer = optim.Adam(G.parameters(), lr)
 
 import pickle as pkl
 
-# Defining Epochs
+# training hyperparams
 num_epochs = 100
 
-# To keep track of loss and generated "fake" images
+# keep track of loss and generated, "fake" samples
 samples = []
 losses = []
 
 print_every = 400
 
-# Getting fixed data fro sampling (constant unaltered throughtout training, allows to inspect the model's performance)
-
-sample_size = 16
+# Get some fixed data for sampling. These are images that are held
+# constant throughout training, and allow us to inspect the model's performance
+sample_size=16
 fixed_z = np.random.uniform(-1, 1, size=(sample_size, z_size))
 fixed_z = torch.from_numpy(fixed_z).float()
 
@@ -167,81 +167,78 @@ fixed_z = torch.from_numpy(fixed_z).float()
 D.train()
 G.train()
 for epoch in range(num_epochs):
-
-  for batch_i, (real_images, _) in enumerate(train_loader):
-
-    batch_size = real_images.size(0)
-
-
-    # Rescale Images from [0,1) to [-1, 1]
-    real_images = real_images*2 - 1
-
-
-    # TRAINING DISCRIMINATOR
-    d_optimizer.zero_grad()
-
-
-    # 1. Train with Real Images
-
-    # Compute the discriminator loss on real images
-    # Smooth the real labels
-    D_real = D(real_images)
-    d_real_loss = real_loss(D_real, smooth=True)
-
-
-    # 2. Train with fake images
-
-
-    # Generate fake images
-    z = np.random.uniform(-1, 1, size =(batch_size, z_size))
-    z = torch.from_numpy(z).float()
-    fake_images = G(z)
-
-    # Compute the discriminator losses on fake images
-    D_fake = D(fake_images)
-    d_fake_loss = fake_loss(D_fake)
-
-    # Adding up fake losses and perform backpropagation
-    d_loss = d_real_loss + d_fake_loss
-    d_loss.backward()
-    d_optimizer.step()
-
-
-    # TRAINING GENERATOR
-    g_optimizer.zero_grad()
-
-
-    # 1. Train with fake images and flipped labels
-
-
-    # Generate fake labels
-    z = np.random.uniform(-1, 1, size=(batch_size, z_size))
-    z = torch.from_numpy(z).float()
-    fake_images = G(z)
-
-    # Compute discriminator losses on fake images using flipped labels
-    D_fake = D(fake_images)
-    g_loss = real_loss(D_fake)    # Using real loss to flip labels
-
-    # Perform backprop
-    g_loss.backward()
-    g_optimizer.step()
-
-    # Printing some loss stats
-    if batch_i % print_every == 0:
-      # Print discriminator and generator loss
-      print('Epoch [{:5d}/{:5d}] | d_loss: {:6.4f} | g_loss: {:6.4f}'.format(epoch+1, num_epochs, d_loss.item(), g_loss.item()))
+    
+    for batch_i, (real_images, _) in enumerate(train_loader):
+        
+        batch_size = real_images.size(0)
+        
+        ## Important rescaling step ##
+        real_images = real_images*2 - 1  # rescale input images from [0,1) to [-1, 1)
+        
+        #  TRAIN THE DISCRIMINATOR
+        d_optimizer.zero_grad()
+        
+        # 1. Train with real images
+        
+        # Compute the discriminator losses on real images
+        # smooth the real labels
+        D_real = D(real_images)
+        d_real_loss = real_loss(D_real, smooth=True)
+        
+        # 2. Train with fake images
+        
+        # Generate fake images
+        z = np.random.uniform(-1, 1, size=(batch_size, z_size))
+        z = torch.from_numpy(z).float()
+        fake_images = G(z)
+        
+        # Compute the discriminator losses on fake images
+        D_fake = D(fake_images)
+        d_fake_loss = fake_loss(D_fake)
+        
+        # add up loss and perform backprop
+        d_loss = d_real_loss + d_fake_loss
+        d_loss.backward()
+        d_optimizer.step()
+        
+        
+        
+        #  TRAIN THE GENERATOR
+        g_optimizer.zero_grad()
+        
+        # 1. Train with fake images and flipped labels
+        
+        # Generate fake images
+        z = np.random.uniform(-1, 1, size=(batch_size, z_size))
+        z = torch.from_numpy(z).float()
+        fake_images = G(z)
+        
+        # Compute the discriminator losses on fake images
+        # using flipped labels!
+        D_fake = D(fake_images)
+        g_loss = real_loss(D_fake) # use real loss to flip labels
+        
+        # perform backprop
+        g_loss.backward()
+        g_optimizer.step()
+        
+        # Print some loss stats
+        if batch_i % print_every == 0:
+            # print discriminator and generator loss
+            print('Epoch [{:5d}/{:5d}] | d_loss: {:6.4f} | g_loss: {:6.4f}'.format(
+                                                                                   epoch+1, num_epochs, d_loss.item(), g_loss.item()))
 
 
-    # After each Epoch
-    # Append discriminator and generator loss
-    losses.append((d_loss.item(), g_loss.item()))
+# AFTER EACH EPOCH
+# append discriminator loss and generator loss
+losses.append((d_loss.item(), g_loss.item()))
 
-    # Generate and save sample, fake images
-    G.eval()  # Evaluate mode for generating samples
+    # generate and save sample, fake images
+    G.eval() # eval mode for generating samples
     samples_z = G(fixed_z)
     samples.append(samples_z)
-    G.train()   # Back to train code
+    G.train() # back to train mode
+
 
 
 
